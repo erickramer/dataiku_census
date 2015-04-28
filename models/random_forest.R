@@ -16,7 +16,7 @@ train_full = get(load("./data/census_training.Rdata")) %>%
   mutate(target=factor(target))
 
 train1 = train_full %>%
-  sample_frac(0.02)
+  sample_n(5000)
 
 x1 = train1 %>%
   select(-id, -target) %>%
@@ -26,7 +26,7 @@ y1 = train1$target
 
 train2 = train_full %>%
   anti_join(train1 %>% select(id)) %>%
-  sample_frac(0.02)
+  sample_n(5000)
 
 x2 = train2 %>%
   select(-id, -target) %>%
