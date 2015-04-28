@@ -16,7 +16,7 @@ train_full = get(load("./data/census_training.Rdata")) %>%
   mutate(target=factor(target))
 
 train1 = train_full %>%
-  sample_frac(0.01)
+  sample_frac(0.02)
 
 x1 = train1 %>%
   select(-id, -target) %>%
@@ -26,7 +26,7 @@ y1 = train1$target
 
 train2 = train_full %>%
   anti_join(train1 %>% select(id)) %>%
-  sample_frac(0.01)
+  sample_frac(0.02)
 
 x2 = train2 %>%
   select(-id, -target) %>%
@@ -38,16 +38,17 @@ y2 = train2$target
 ctrl = trainControl(method="repeatedcv",
                     number=10,
                     repeats=1,
+                    classProbs=T,
                     savePredictions=T)
 
-# grid search for random forest parameter
+# grid search for random forest
 rf = train(x1,
            y1,
            method="rf",
            trControl=ctrl,
            ntrees=1000)
 
-# grid search for svm parameter
+# grid search for svm 
 svm = train(x1,
             y1,
             method="svmRadialCost",
