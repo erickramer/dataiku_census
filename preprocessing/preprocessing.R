@@ -1,26 +1,41 @@
 library("dplyr") # used for  improved syntax
-library("readr") # used for fast file reading
+library("data.table") # used for fast file reading
 library("tidyr") # used for fast data-munging
 library("ggvis") # used for plotting
-
-convert_to_numeric = function(x) as.numeric(gsub("^ ", "", x))
 
 # loading the data from the file
 # and a bit of cleaning
 
-census_training = read_csv("./data/us_census_full/census_income_learn.csv",
-                           col_names=F) %>%
-  mutate(target=X42, age=X1) %>% # I'm guessing X1 is age
-  mutate(X25=convert_to_numeric(X25)) %>%
-  mutate(X6=convert_to_numeric(X6)) %>% 
-  mutate(X19=convert_to_numeric(X19)) %>%
-  select(-X42, -X1)
+census_training = fread("./data/us_census_full/census_income_learn.csv") %>%
+  mutate(target=V42) %>%
+  select(-V42) %>%
+  as.data.frame %>%
+  as.tbl
 
+# quick look at the data
+str(census_training)
 
-# now i'm looking at feature counts
+# getting a little meta-info about the variables
+classes = data.frame(variable=colnames(census_training),
+                     class=sapply(census_training, class),
+                     stringsAsFactors=F)
+
+# i'm going to split the data into catagorical and continous
+# for the next couple cleaning steps
+
+continuous_vars = classes %>%
+  filter(class %in% c("integer", "numeric")) %>%
+  .$variable
+
+catagorical_vars = classes %>%
+  filter(class=="character") %>%
+  filter(variable!="target") %>%
+  .$variable
+
+# now i'm looking at feature counts for catagorical
 # making sure all levels have a reasonable frequency
 feature_counts = census_training %>%
-  select(-target, -age, -X25, -X6) %>% # remove continuous variables and target
+  select(-target) %>% # remove continuous variables and target
   gather(variable, value) %>%
   group_by(variable, value) %>%
   summarize(n=n(),
