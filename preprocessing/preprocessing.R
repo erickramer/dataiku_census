@@ -83,6 +83,7 @@ continuous_cleaned = census_training %>%
 
 census_training = census_training %>%
   select(id, target) %>%
+  mutate(target=factor(target)) %>%
   inner_join(catagorical_cleaned) %>%
   inner_join(continuous_cleaned)
 
