@@ -34,16 +34,21 @@ catagorical_vars = classes %>%
 
 # now i'm looking at feature counts for catagorical
 # making sure all levels have a reasonable frequency
-feature_counts = census_training %>%
-  select(-target) %>% # remove continuous variables and target
+
+catagorical_counts = census_training %>%
+  select(one_of(catagorical_vars)) %>%
   gather(variable, value) %>%
   group_by(variable, value) %>%
   summarize(n=n(),
             f=n/nrow(census_training))
 
 # let's plot these frequencies to see what's going on
-feature_counts %>%
+catagorical_counts %>%
   ggvis(~f, fill = ~variable) %>%
   layer_histograms(width=0.01)
 
-# we see that X5 
+# we see that V35, V34 and V33 have a lot of rare catagories
+# these look like "country of birth" or something like that
+# 
+# V22-V23 also have a lot of rare catagories
+# I'm going to set all catagories with freq < 1% to "rare"
