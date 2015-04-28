@@ -58,7 +58,7 @@ catagorical_counts %>%
 # I'm going to set all catagories with freq < 1% to "rare"
 
 rare_catagories = catagorical_counts %>%
-  filter(f < 0.01)
+  filter(f < 0.05)
 
 catagorical_cleaned = census_training %>%
   select(one_of(catagorical_vars), id) %>%
