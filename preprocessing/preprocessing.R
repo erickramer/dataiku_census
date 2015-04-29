@@ -55,20 +55,30 @@ catagorical_counts %>%
 # we see that V35, V34 and V33 have a lot of rare catagories
 # these look like "country of birth" or something like that
 # V22-V23 also have a lot of rare catagories
-# I'm going to set all catagories with freq < 1% to "rare"
+# I'm going to set all catagories with freq < 5% to "rare"
+# 
+# I'm going to also delete two columns (V15, V38) with a max frequency > 95%
+# these columns have very little variation
 
 rare_catagories = catagorical_counts %>%
   filter(f < 0.05)
 
+frequent_catagories = catagorical_counts %>%
+  group_by(variable) %>%
+  summarize(f=max(f)) %>%
+  filter(f > 0.95)
+
 catagorical_cleaned = census_training %>%
   select(one_of(catagorical_vars), id) %>%
   gather(variable, value, -id) %>%
+  anti_join(frequent_catagories) %>%
   anti_join(rare_catagories) %>%
   spread(variable, value, fill="rare")
 
 ## CLEANING CONTINUOUS VARIABLES 
 
-## looking at the number of distinct values in the 
+## looking at the number of distinct values in the continuous variables
+## didn't end up chaning anything...
 
 continous_counts = census_training %>%
   select(one_of(continuous_vars), id) %>%
@@ -89,5 +99,6 @@ census_training = census_training %>%
 
 save(census_training, file="./data/census_training.Rdata")
 save(rare_catagories, file="./data/rare_catagories.Rdata")
+save(frequent_catagories, file="./data/frequent_catagories.Rdata")
 save(catagorical_counts, file="./Rmd/data/catagorical_counts.Rdata")
 save(classes, file="./data/classes.Rdata")
