@@ -1,0 +1,76 @@
+---
+title: "Model Building"
+author: "Eric Kramer"
+output: html_document
+runtime: shiny
+---
+
+```{r include=F}
+library("dplyr")
+library("ggvis")
+
+load("./data/aucs.Rdata")
+load("./data/importance_measures.Rdata")
+
+sens_spec = plyr::ldply(aucs, function(x){
+  data.frame(sens=x$sensitivities,
+             spec=x$specificities)
+}) 
+
+sens_spec = sens_spec %>%
+  mutate(Model=`.id`) %>%
+  select(-`.id`) %>%
+  group_by(Model) %>%
+  sample_n(500) %>%# reduce for plotting
+  ungroup
+
+```
+
+## Model Building
+
+I used three separate models: a random forest, a support vector machine and an elastic net regression. Additionally, I combined these three models into an ensemble model using ridge regression.
+
+The training set was split into two uneven training subsets. I optimized the parameters for the models using 10-fold cross-validation on the first part of the training set. Then, the ensemble model was built on the second part of the training set where the predictions from the three other models were used as inputs to a ridge regression model. 
+
+## AUCs
+
+We see that the ensemble model performs the best, followed by the elastic net regression and the random forest. The SVM performs the worst, most likely because it needs careful preprocessing to ensure good performance.
+
+```{r echo=F}
+data.frame(Model=c("Random Forest", "SVM", "Elastic Net", "Ensemble"),
+           AUC=sapply(aucs, function(x) x$auc)) %>%
+  arrange(-AUC) %>%
+  renderDataTable(options=list(pageLength = 10))
+```
+
+## ROC Curves
+
+If we plot the ROC curves for the models, we see that the ensemble model, elastic net regression and the random forest all perform very similarly, while the SVM performs poorly.
+
+```{r echo=F}
+
+sens_spec %>%
+  mutate(one_minus_spec=1-spec) %>%
+  arrange(spec) %>%
+  ggvis(~one_minus_spec, ~sens, stroke=~Model) %>%
+  group_by(Model) %>%
+  layer_lines() %>%
+  add_axis("x", title="1 - Specificity") %>%
+  add_axis("y", title="Sensitivity")
+
+```
+
+## Importance Measures
+
+Both the random forest and the elastic net regression measure the imporance of the features used for training the model. Interestingly, the models give very different weights to features; however, the models perform very similarly.
+
+For instance, the random forest gives a very high importance to WeeksWorkedPerYear, but this variable has a relatively small coefficient in the elastic net regression. This is most likely because the elastic net regression is unable to take advatange of the nonlinear relationship between weeks worked and income status. A similar pattern is seen with age: the elastic net regression is unable to detect the nonlinear relationship between age and income.
+
+```{r echo=F}
+
+inner_join(rf_importance, net_coef, by="variable") %>%
+  select(Variable=variable, MeanDecreaseGini, ElasticNetCoefficient) %>%
+  arrange(-MeanDecreaseGini) %>%
+  renderDataTable(options=list(pageLength = 10))
+
+```
