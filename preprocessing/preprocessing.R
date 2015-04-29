@@ -89,3 +89,5 @@ census_training = census_training %>%
 
 save(census_training, file="./data/census_training.Rdata")
 save(rare_catagories, file="./data/rare_catagories.Rdata")
+save(catagorical_counts, file="./Rmd/data/catagorical_counts.Rdata")
+save(classes, file="./data/classes.Rdata")

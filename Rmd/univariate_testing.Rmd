@@ -1,0 +1,56 @@
+---
+title: "Univariate Testing"
+author: "Eric Kramer"
+output: html_document
+runtime: shiny
+---
+
+```{r echo=F, include=FALSE}
+library("dplyr")
+library("ggvis")
+library("shiny")
+
+load("./data/univariate_performance.Rdata")
+load("./data/catagorical_counts.Rdata")
+
+
+```
+
+## Frequency distribution of variables
+
+First, I looked at the frequency distribution of the values for each of the catagorical variables. 
+
+```{r echo=F}
+variable = catagorical_counts$variable
+
+tt = function(x) x[1,1]
+
+catagorical_counts %>% 
+  as.data.frame %>%
+  mutate(variable=factor(variable)) %>%
+  ggvis(x = ~f, fill =~ variable) %>%
+  group_by(variable) %>%
+  layer_histograms(width = input_slider(min = 0.01, max = 1, value = 0.02, step = 0.01,
+      label = "Bin size")) %>%
+  add_axis("x", title="Value Frequency") %>%
+  add_axis("y", title="Count") 
+```
+
+The coloring makes it difficult to tell, but a V22-V23 and V33-V35 have a lot of values with that occur at low frequency. V22-V23 look to be like sort of family status and V33-V35 seem to be "country of birth" or something like that. I set all values with a frequency less that 5% as "rare". If I spent more time on this project, I would probably map V33-V35 to geographic regions to recover some of the information in those variables.
+
+## $R^2$ and AUC measurements for each variable
+
+I tested the predictive capability of each variable. I ran both a logistic regression and a random forest. I measured the performance of the logistic regression using Nagelkerke's $R^2$, and I measured the performance of the random forest using a out-of-bounds AUC estimate. 
+
+
+
+```{r echo=F}
+performance %>%
+  mutate(AUC=as.numeric(AUC)) %>%
+  arrange(-AUC) %>%
+  renderDataTable()
+```
+
+## Catagorical variables
+
+
