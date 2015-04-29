@@ -28,7 +28,7 @@ census_sample = census_training %>%
 
 For this analysis, I treated any columns with text in the training file as *catagorical* variables, while any columns with numeric entries were treated as *continuous* variables.
 
-For categorical variables, I set all values with a frequency less than 5% to rare. V22-V23 and V33-V35 have a lot of these rare values. V22-V23 look to be like sort of family status and V33-V35 seem to be "country of birth" or something like that. If I spent more time on this project, I would probably map V33-V35 to geographic regions to recover some of the information in those variables.
+For categorical variables, I set all values with a frequency less than 5% to rare. V22-V23 and V33-V35 have a lot of these rare values. V22-V23 seem to be family status and V33-V35 seem to be "country of birth". If I spent more time on this project, I would probably map V33-V35 to geographic regions to recover some of the information in those variables.
 
 I also downsampled the dataset for visualization, taking 1,000 samples from each income category. This improves visual comparison between income groups. Otherwise, the counts are too imbalanced to make easy judgements.
 
