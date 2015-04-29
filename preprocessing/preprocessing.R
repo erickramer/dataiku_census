@@ -34,8 +34,6 @@ str(census_training)
 # i'm going to split the data into catagorical and continous
 # for the next couple cleaning steps
 
-## CLEANING CATAGORICAL VARIABLES 
-
 continuous_vars = meta_data %>%
   filter(Class=="continuous") %>%
   .$Variable
@@ -44,6 +42,8 @@ categorical_vars = meta_data %>%
   filter(Class=="categorical") %>%
   filter(Variable!="target") %>%
   .$Variable
+
+## CLEANING CATAGORICAL VARIABLES 
 
 # i'm looking at feature counts for catagorical
 # making sure all entries have a reasonable frequency
@@ -66,12 +66,13 @@ categorical_counts %>%
 
 # we see that the DetailedIndustry, StateOfResidency, Occupation all have 
 # a lot of rare varaibles
-# 
-# I'm going to also delete two columns (UnemployReason, VeteranAdmin) with a max frequency > 95%
-# these columns have very little variation
 
 rare_categories = categorical_counts %>%
   filter(f < 0.05)
+
+# I'm going to also delete two columns (UnemployReason, VeteranAdmin) 
+# with a max frequency > 95%
+# these columns have very little variation
 
 frequent_categories = categorical_counts %>%
   group_by(Variable) %>%
@@ -124,5 +125,5 @@ census_testing = census %>%
 save(census_training, file="./data/census_training.Rdata")
 save(census_testing, file="./data/census_testing.Rdata")
 
-save(rare_catagories, file="./data/rare_catagories.Rdata")
-save(frequent_catagories, file="./data/frequent_catagories.Rdata")
+save(rare_categories, file="./data/rare_catagories.Rdata")
+save(frequent_categories, file="./data/frequent_catagories.Rdata")
