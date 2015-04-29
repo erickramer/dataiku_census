@@ -41,12 +41,14 @@ train_full = get(load("./data/census_training.Rdata")) %>%
   mutate(Target=factor(Target)) %>%
   select(-Cohort) %>%
   as.data.frame %>%
-  as.tbl
+  as.tbl %>%
+  group_by(Target) %>%
+  sample_n(12382) # downsampling for quick training
 
 # first training set is used to train the RF, SVM and Elastic Net
 train1 = train_full %>%
   group_by(Target) %>% 
-  sample_n(5000) %>% # downsampling for quick training
+  sample_frac(0.9) %>% # use 90% for models, 10% for ensemble
   ungroup 
 
 x1 = train1 %>%
@@ -57,14 +59,11 @@ y1 = train1$Target
 
 # second training set is used to train the ensemble model
 train2 = train_full %>%
-  anti_join(train1 %>% select(id)) %>%
-  group_by(Target) %>% 
-  sample_n(1000) %>% # downsampling for quick training
-  ungroup 
+  anti_join(train1 %>% select(id)) 
 
 x2 = train2 %>%
   select(-id, -Target) %>%
-  model.matrix(~.-1, data=.) # create dummy variables
+  model.matrix(~.-1, data=.)
 
 y2 = train2$Target
 
