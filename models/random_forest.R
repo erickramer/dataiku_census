@@ -19,9 +19,9 @@ registerDoParallel(15)
 ## PREDICTION FUNCTION WRAPPERS
 
 get_model_predictions = function(newdata, rf, svm, net){
-  data.frame(rf=predict(rf, newdata=newdata, type="prob"),
-             svn=predict(svm, newdata=newdata, type="prob"),
-             net=predict(net, newx=newdata, s="lambda.min"))
+  data.frame(rf=predict(rf$finalModel, newdata=newdata, type="prob")[,2],
+             svm=predict(svm$finalModel, newdata=newdata, type="prob")[,2],
+             net=predict(net, newx=newdata, s="lambda.min", type="response")[,1])
 }
 
 get_ensemble_predictions = function(newdata, ensemble, ...){
@@ -53,12 +53,12 @@ y1 = train1$target
 train2 = train_full %>%
   anti_join(train1 %>% select(id)) %>%
   group_by(target) %>% 
-  sample_n(500) %>% # downsampling for quick training
+  sample_n(1000) %>% # downsampling for quick training
   ungroup 
 
 x2 = train2 %>%
   select(-id, -target) %>%
-  model.matrix(~., data=.) # create dummy variables
+  model.matrix(~.-1, data=.) # create dummy variables
 
 y2 = train2$target
 
@@ -105,22 +105,28 @@ net_coef = coef(net) %>%
   as.matrix %>%
   as.data.frame %>%
   mutate(variable=row.names(.)) %>%
-  arrange(-abs(coef))
+  mutate(ElasticNetCoefficient=`1`) %>%
+  select(-`1`) %>%
+  arrange(-abs(ElasticNetCoefficient))
 
 # create new predictors for ensemble models
 
-z2 = data.frame(rf=predict(rf, newdata=x2, type="prob"),
-                svn=predict(svm, newdata=x2, type="prob"),
-                net=predict(net, newx=x2, s="lambda.min"))
+z2 = get_model_predictions(x2, rf=rf, svm=svm, net=net)
 
-ensemble = cv.glmnet(x2,
+ensemble = cv.glmnet(as.matrix(z2),
                      y2,
                      keep=T,
                      nfolds=10,
                      alpha=0.1,
-                     lower.limit=0)
+                     lower.limit=0,
+                     family="binomial",
+                     parallel=T)
 
 ensemble_coef = coef(net) %>%
   as.matrix %>%
   as.data.frame %>%
   mutate(model=row.names(.))
+
+## PREDICTING ON TESTING SET
+
+testing_full = get(load("./data/census_testing.Rdata"))
