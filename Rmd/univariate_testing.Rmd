@@ -13,65 +13,40 @@ library("shiny")
 
 
 load("./data/univariate_performance.Rdata")
-load("./data/catagorical_counts.Rdata")
-load("./data/classes.Rdata")
 load("./data/census_training.Rdata")
 
 census_sample = census_training %>%
   as.data.frame %>%
-  group_by(target) %>%
-  sample_n(5000)
+  group_by(Target) %>%
+  sample_n(5000)  # downsampling for visualization
 
 ```
 
 ## Note on Preprocessing
 
-For this analysis, I treated any columns with text in the training file as *catagorical* variables, while any columns with numeric entries were treated as *continuous* variables.
 
-For categorical variables, I set all values with a frequency less than 5% to rare. V22-V23 and V33-V35 have a lot of these rare values. V22-V23 seem to be family status and V33-V35 seem to be "country of birth". If I spent more time on this project, I would probably map V33-V35 to geographic regions to recover some of the information in those variables.
+I  downsampled the dataset for visualization, taking 1,000 samples from each income category. This improves visual comparison between income groups. Otherwise, the counts are too imbalanced to make easy judgements.
 
-I also downsampled the dataset for visualization, taking 1,000 samples from each income category. This improves visual comparison between income groups. Otherwise, the counts are too imbalanced to make easy judgements.
+For categorical variables, I set all values with a frequency less than 1% to *rare*. This mostly affected the variable capturing county-of-birth information and detailed household statistics. 
 
-## $R^2$ and AUC measurements for each variable
+## AUC measurements for each variable
 
-I tested the predictive capability of each variable using both a logistic regression and a random forest. I measured the performance of the logistic regression using Nagelkerke's $R^2$, and I measured the performance of the random forest using a out-of-bounds AUC estimate. 
+I tested the predictive capability of each variable using a random forest. A separate random forest was grown for each variable, and its performance was measured using an out-of-bounds AUC measurement. We could attempt to recover some of the information in these variables by mapping countries to regions and reducing the number of household categories.
 
 ```{r echo=F}
 performance %>%
   mutate(AUC=as.numeric(AUC)) %>%
-  mutate(Column=gsub("^V", "", Variable)) %>%
-  select(Column, AUC) %>%
+  select(Variable, AUC) %>%
   arrange(-AUC) %>%
   renderDataTable(options=list(pageLength = 10))
 ```
 
 ## Insights from Univariate Analysis
 
-```{r echo=F, warning=FALSE, fig.show="hold"}
-
-bar_plot = function(variable){
-  
-  df = census_sample[c(variable, "target")]
-  colnames(df) = c("V1", "target")
-  
-  df %>%
-    ggvis(~V1, fill=~target) %>%
-    print
-}
-
-variables = inner_join(performance, classes %>% mutate(Variable=variable), by="Variable") %>%
-  filter(class=="character") %>%
-  mutate(AUC=as.numeric(AUC)) %>%
-  arrange(-AUC) %>% 
-  head(9) %>%
-  .$variable
-```
-
-
-### Column 10: Executives and Professionals earn more
+### MajorOccupation: Executives and Professionals earn more
 ```{r echo=F}
 census_sample %>%
-  ggvis(~V10, fill=~target)  %>%
+  ggvis(~MajorOccupation, fill=~Target)  %>%
   layer_bars() %>%
   add_axis("x",
            title="",
@@ -80,10 +55,10 @@ census_sample %>%
                                            align="left")))
 ```
 
-### Column 5: Individuals with higher education earn more
+### Education: Individuals with higher education earn more
 ```{r echo=F}
 census_sample %>%
-  ggvis(~V5, fill=~target)  %>%
+  ggvis(~Education, fill=~Target)  %>%
   layer_bars() %>%
   add_axis("x",
            title="",
@@ -92,10 +67,10 @@ census_sample %>%
                                            align="left")))
 ```
 
-### Column 8: Married households earn more
+### MaritalStat: Married households earn more
 ```{r echo=F}
 census_sample %>%
-  ggvis(~V8, fill=~target)  %>%
+  ggvis(~MaritalStat, fill=~Target)  %>%
   layer_bars() %>%
   add_axis("x",
            title="",
@@ -104,23 +79,11 @@ census_sample %>%
                                            align="left")))
 ```
 
-### Column 23: House-owners earn more
-```{r echo=F}
-census_sample %>%
-  ggvis(~V23, fill=~target)  %>%
-  layer_bars() %>%
-  add_axis("x",
-           title="",
-         title_offset=100,
-         properties=axis_props(labels=list(angle=45,
-                                           align="left")))
 
-```
-
-### Column 13: We also see evidence for the *wage-gap*: men earn more than women
+### Sex: We also see evidence for the *wage-gap* -- men earn more than women
 ```{r echo=FALSE}
 census_sample %>%
-  ggvis(~V13, fill=~target)  %>%
+  ggvis(~Sex, fill=~Target)  %>%
   layer_bars() %>%
   add_axis("x",
            title="",
@@ -129,12 +92,27 @@ census_sample %>%
                                            align="left")))   
 ```
 
-### Column 4 predicts income too
-I'm not sure what this variable represents. But households with a 0 for in column 4 are much more likely to make less than 50,000 dollars. Households with a 2 in column 4 are much more likely to make more than 50,000
+### Age: Workers in prime working-age (30 to 60 years old) earn the most 
+```{r echo=F, fig.height=7}
+census_sample %>% 
+  ggvis(~Age, fill=~Target) %>%
+  group_by(Target) %>%
+  layer_histograms(width=input_slider(1, 10, value=3, step=0.5, label="Bin Width"))
+```
+
+### WeeksWorkedInYear: Partially-employed individuals are surprisingly rare.
+
+Workers appear to not work at all or report 52 weeks of work.
 
 ```{r echo=F, fig.height=7}
 census_sample %>% 
-  ggvis(~V4, fill=~target) %>%
-  group_by(target) %>%
-  layer_histograms(width=input_slider(1, 5, value=3, step=0.5, label="Bin Width"))
+  ggvis(~WeeksWorkedInYear, fill=~Target) %>%
+  group_by(Target) %>%
+  layer_histograms(width=input_slider(1, 10, value=2, step=0.5, label="Bin Width"))
 ```
+
+## Conclusion
+
+The univariate analysis mostly matches expectations. Income is heavily dependent on an individual's education, ocupation and age. I was suprising by the lack of partiall-employed individuals. I thought there would be more workers who worked 6 months out of the year.
+
+On to the predictive modeling!

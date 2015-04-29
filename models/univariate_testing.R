@@ -5,7 +5,7 @@ library("rms")
 library("randomForest")
 library("doParallel")
 
-get_univariate_performance = function(x, target, m_full){
+get_univariate_performance = function(x, target){
   
   #m = lrm(target ~ ., data=data.frame(x=x))
   rf = randomForest(target ~ ., data=data.frame(x=x))
@@ -19,17 +19,21 @@ registerDoParallel(10)
 
 load("./data/census_training.Rdata")
 
-census_training %<>% 
-  group_by(target) %>%
-  sample_n(2000) %>%
+census_training = census_training %>% 
+  group_by(Target) %>%
+  sample_n(2000) %>% # downsample to make this faster
   ungroup
 
 ## loop over all features and calculate error rate
 
+
+
 performance = plyr::ldply(census_training %>% 
-                              select(starts_with("V")),
+                              select(-id) %>%
+                              select(-Cohort) %>%
+                              select(-Target),
                           get_univariate_performance, 
-                          target=census_training$target,
+                          target=factor(census_training$Target),
                           .parallel=T) %>%
   mutate(Variable=`.id`) %>%
   select(-`.id`)
