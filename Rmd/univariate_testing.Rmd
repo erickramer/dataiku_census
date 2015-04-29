@@ -118,7 +118,6 @@ census_sample %>%
 ```
 
 ### Column 13: We also see evidence for the *wage-gap*: men earn more than women
-
 ```{r echo=FALSE}
 census_sample %>%
   ggvis(~V13, fill=~target)  %>%
