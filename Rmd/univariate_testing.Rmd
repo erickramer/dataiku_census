@@ -6,51 +6,136 @@ runtime: shiny
 ---
 
 ```{r echo=F, include=FALSE}
+library("data.table")
 library("dplyr")
 library("ggvis")
 library("shiny")
 
+
 load("./data/univariate_performance.Rdata")
 load("./data/catagorical_counts.Rdata")
+load("./data/classes.Rdata")
+load("./data/census_training.Rdata")
 
-
-```
-
-## Frequency distribution of variables
-
-First, I looked at the frequency distribution of the values for each of the catagorical variables. 
-
-```{r echo=F}
-variable = catagorical_counts$variable
-
-tt = function(x) x[1,1]
-
-catagorical_counts %>% 
+census_sample = census_training %>%
   as.data.frame %>%
-  mutate(variable=factor(variable)) %>%
-  ggvis(x = ~f, fill =~ variable) %>%
-  group_by(variable) %>%
-  layer_histograms(width = input_slider(min = 0.01, max = 1, value = 0.02, step = 0.01,
-      label = "Bin size")) %>%
-  add_axis("x", title="Value Frequency") %>%
-  add_axis("y", title="Count") 
+  group_by(target) %>%
+  sample_n(5000)
+
 ```
 
-The coloring makes it difficult to tell, but a V22-V23 and V33-V35 have a lot of values with that occur at low frequency. V22-V23 look to be like sort of family status and V33-V35 seem to be "country of birth" or something like that. I set all values with a frequency less that 5% as "rare". If I spent more time on this project, I would probably map V33-V35 to geographic regions to recover some of the information in those variables.
+## Note on Preprocessing
+
+For this analysis, I treated any columns with text in the training file as *catagorical* variables, while any columns with numeric entries were treated as *continuous* variables.
+
+For categorical variables, I set all values with a frequency less than 5% to rare. V22-V23 and V33-V35 have a lot of these rare values. V22-V23 look to be like sort of family status and V33-V35 seem to be "country of birth" or something like that. If I spent more time on this project, I would probably map V33-V35 to geographic regions to recover some of the information in those variables.
+
+I also downsampled the dataset for visualization, taking 1,000 samples from each income category. This improves visual comparison between income groups. Otherwise, the counts are too imbalanced to make easy judgements.
 
 ## $R^2$ and AUC measurements for each variable
 
-I tested the predictive capability of each variable. I ran both a logistic regression and a random forest. I measured the performance of the logistic regression using Nagelkerke's $R^2$, and I measured the performance of the random forest using a out-of-bounds AUC estimate. 
-
-
+I tested the predictive capability of each variable using both a logistic regression and a random forest. I measured the performance of the logistic regression using Nagelkerke's $R^2$, and I measured the performance of the random forest using a out-of-bounds AUC estimate. 
 
 ```{r echo=F}
 performance %>%
   mutate(AUC=as.numeric(AUC)) %>%
+  mutate(Column=gsub("^V", "", Variable)) %>%
+  select(Column, AUC) %>%
   arrange(-AUC) %>%
-  renderDataTable()
+  renderDataTable(options=list(pageLength = 10))
 ```
 
-## Catagorical variables
+## Insights from Univariate Analysis
+
+```{r echo=F, warning=FALSE, fig.show="hold"}
+
+bar_plot = function(variable){
+  
+  df = census_sample[c(variable, "target")]
+  colnames(df) = c("V1", "target")
+  
+  df %>%
+    ggvis(~V1, fill=~target) %>%
+    print
+}
+
+variables = inner_join(performance, classes %>% mutate(Variable=variable), by="Variable") %>%
+  filter(class=="character") %>%
+  mutate(AUC=as.numeric(AUC)) %>%
+  arrange(-AUC) %>% 
+  head(9) %>%
+  .$variable
+```
 
 
+### Column 10: Executives and Professionals earn more
+```{r echo=F}
+census_sample %>%
+  ggvis(~V10, fill=~target)  %>%
+  layer_bars() %>%
+  add_axis("x",
+           title="",
+         title_offset=100,
+         properties=axis_props(labels=list(angle=45,
+                                           align="left")))
+```
+
+### Column 5: Individuals with higher education earn more
+```{r echo=F}
+census_sample %>%
+  ggvis(~V5, fill=~target)  %>%
+  layer_bars() %>%
+  add_axis("x",
+           title="",
+         title_offset=100,
+         properties=axis_props(labels=list(angle=45,
+                                           align="left")))
+```
+
+### Column 8: Married households earn more
+```{r echo=F}
+census_sample %>%
+  ggvis(~V8, fill=~target)  %>%
+  layer_bars() %>%
+  add_axis("x",
+           title="",
+         title_offset=100,
+         properties=axis_props(labels=list(angle=45,
+                                           align="left")))
+```
+
+### Column 23: House-owners earn more
+```{r echo=F}
+census_sample %>%
+  ggvis(~V23, fill=~target)  %>%
+  layer_bars() %>%
+  add_axis("x",
+           title="",
+         title_offset=100,
+         properties=axis_props(labels=list(angle=45,
+                                           align="left")))
+
+```
+
+### Column 13: We also see evidence for the *wage-gap*: men earn more than women
+
+```{r echo=FALSE}
+census_sample %>%
+  ggvis(~V13, fill=~target)  %>%
+  layer_bars() %>%
+  add_axis("x",
+           title="",
+         title_offset=100,
+         properties=axis_props(labels=list(angle=45,
+                                           align="left")))   
+```
+
+### Column 4 predicts income too
+I'm not sure what this variable represents. But households with a 0 for in column 4 are much more likely to make less than 50,000 dollars. Households with a 2 in column 4 are much more likely to make more than 50,000
+
+```{r echo=F, fig.height=7}
+census_sample %>% 
+  ggvis(~V4, fill=~target) %>%
+  group_by(target) %>%
+  layer_histograms(width=input_slider(1, 5, value=3, step=0.5, label="Bin Width"))
+```
