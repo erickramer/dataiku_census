@@ -12,6 +12,8 @@ library("glmnet")
 library("doParallel")
 library("dplyr")
 library("glmnet")
+library("ROCR")
+library("pROC")
 
 set.seed(1)
 registerDoParallel(15)
@@ -25,42 +27,46 @@ get_model_predictions = function(newdata, rf, svm, net){
 }
 
 get_ensemble_predictions = function(newdata, ensemble, ...){
-  z = get_model_predictions(...)
-  predict(ensemble, newx=as.matrix(z), s="lambda.min")
+  z = get_model_predictions(newdata, ...)
+  p = predict(ensemble, newx=as.matrix(z), s="lambda.min", type="response")[,1]
+  
+  z %>%
+    mutate(ensemble=p)
 }
 
 ## GENERATE TRAINING SETS
 
 # load full data
 train_full = get(load("./data/census_training.Rdata")) %>%
-  mutate(target=factor(target)) %>%
+  mutate(Target=factor(Target)) %>%
+  select(-Cohort) %>%
   as.data.frame %>%
   as.tbl
 
 # first training set is used to train the RF, SVM and Elastic Net
 train1 = train_full %>%
-  group_by(target) %>% 
+  group_by(Target) %>% 
   sample_n(5000) %>% # downsampling for quick training
   ungroup 
 
 x1 = train1 %>%
-  select(-id, -target) %>%
+  select(-id, -Target) %>%
   model.matrix(~.-1 , data=.) # create dummy variables
 
-y1 = train1$target
+y1 = train1$Target
 
 # second training set is used to train the ensemble model
 train2 = train_full %>%
   anti_join(train1 %>% select(id)) %>%
-  group_by(target) %>% 
+  group_by(Target) %>% 
   sample_n(1000) %>% # downsampling for quick training
   ungroup 
 
 x2 = train2 %>%
-  select(-id, -target) %>%
+  select(-id, -Target) %>%
   model.matrix(~.-1, data=.) # create dummy variables
 
-y2 = train2$target
+y2 = train2$Target
 
 ## TRAINING MODELS
 
@@ -109,6 +115,9 @@ net_coef = coef(net) %>%
   select(-`1`) %>%
   arrange(-abs(ElasticNetCoefficient))
 
+save(rf, svm, net, file="./data/models.Rdata")
+save(net_coef, rf_importance, file="./data/importance_measures.Rdata")
+
 # create new predictors for ensemble models
 
 z2 = get_model_predictions(x2, rf=rf, svm=svm, net=net)
@@ -122,11 +131,32 @@ ensemble = cv.glmnet(as.matrix(z2),
                      family="binomial",
                      parallel=T)
 
-ensemble_coef = coef(net) %>%
+ensemble_coef = coef(ensemble) %>%
   as.matrix %>%
   as.data.frame %>%
   mutate(model=row.names(.))
 
+save(ensemble, file="./data/ensemble.Rdata")
+
 ## PREDICTING ON TESTING SET
 
 testing_full = get(load("./data/census_testing.Rdata"))
+  
+x_testing = testing_full %>%
+  select(-id, -Target, -Cohort) %>%
+  model.matrix(~.-1 , data=.) # create dummy variables
+
+y_testing = factor(testing_full$Target)
+
+pred_testing = get_ensemble_predictions(x_testing, 
+                                        ensemble=ensemble, 
+                                        rf=rf, 
+                                        svm=svm, 
+                                        net=net)
+# calculating AUCs
+aucs = plyr::llply(pred_testing, 
+                  function(x) roc(y_testing, x),
+                  .parallel=T)
+
+save(aucs, file="./data/aucs.Rdata")
+save(aucs, file="./Rmd/data/aucs.Rdata")
