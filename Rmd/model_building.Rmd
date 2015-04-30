@@ -28,11 +28,17 @@ sens_spec = sens_spec %>%
 
 ## Model Building
 
-I used three separate models: a random forest, a support vector machine and an elastic net regression. Additionally, I combined these three models into an ensemble model using ridge regression.
+I trained an ensemble models using three separate models in the ensemble: a random forest, an elastic net regression and a support vector machine with a radial basis function. 
 
-The training set was split into two uneven training subsets. I optimized the parameters for the models using 10-fold cross-validation on the first part of the training set. Then, the ensemble model was built on the second part of the training set where the predictions from the three other models were used as inputs to a ridge regression model. 
+For training, I downsampled the training set to improve training speed. During downsampling, I sampled evenly from the two income categories. Many classifiers show worse performance with unbalanced dataset, so the even sampling counters this bias. 
 
-## AUCs
+I split the training set into a 90% portion for training the three base models and a 10% portion for training the ensemble model. For each base model, relevant parameters were optimized using 10-fold cross-validation. For the random forest, I optimized the number of variables used for each decision tree. For the SVM, I optimized the cost parameter and for the elastic net regression, I optimized the regularization coefficient.
+
+Once these three models were built, I made predictions for the remaining 10% of the training set. These predictions were then used as the input for a ridge regression to build an ensemble model. Here again, the regularization parameter of the ridge regression was estimated using 10-fold cross-validation.
+
+Finally, predictions were made on the test set. Predictions were first made using each of the base models. These predictions were then used as inputs for the ensemble model to create the ensemble predictions.
+
+## AUCs for Testing Set
 
 We see that the ensemble model performs the best, followed by the elastic net regression and the random forest. The SVM performs the worst, most likely because it needs careful preprocessing to ensure good performance.
 
@@ -64,7 +70,7 @@ sens_spec %>%
 
 Both the random forest and the elastic net regression measure the imporance of the features used for training the model. Interestingly, the models give very different weights to features; however, the models perform very similarly.
 
-For instance, the random forest gives a very high importance to WeeksWorkedPerYear, but this variable has a relatively small coefficient in the elastic net regression. This is most likely because the elastic net regression is unable to take advatange of the nonlinear relationship between weeks worked and income status. A similar pattern is seen with age: the elastic net regression is unable to detect the nonlinear relationship between age and income.
+For instance, the random forest gives a very high importance to WeeksWorkedPerYear, but this variable has a relatively small coefficient in the elastic net regression. This is most likely because the elastic net regression is unable to take advantage of the nonlinear relationship between weeks worked and income status. A similar pattern is seen with age: the elastic net regression is unable to detect the nonlinear relationship between age and income.
 
 ```{r echo=F}
 

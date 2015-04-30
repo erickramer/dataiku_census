@@ -14,11 +14,17 @@ library("shiny")
 
 load("./data/univariate_performance.Rdata")
 load("./data/census_training.Rdata")
+load("./data/missingness.Rdata")
 
 census_sample = census_training %>%
   as.data.frame %>%
   group_by(Target) %>%
   sample_n(5000)  # downsampling for visualization
+
+performance = missingness %>%
+  select(Variable, Missing_Frequency, Rare_Frequency) %>%
+  as.data.frame %>%
+  inner_join(performance)
 
 ```
 
@@ -27,16 +33,19 @@ census_sample = census_training %>%
 
 I  downsampled the dataset for visualization, taking 1,000 samples from each income category. This improves visual comparison between income groups. Otherwise, the counts are too imbalanced to make easy judgements.
 
-For categorical variables, I set all values with a frequency less than 1% to *rare*. This mostly affected the variable capturing county-of-birth information and detailed household statistics. 
+For categorical variables, I set all values with a frequency less than 5% to *rare*. This mostly affected the variable capturing county-of-birth information and detailed household / employment statistics statistics. We could attempt to recover some of the information in these variables by mapping countries to regions and reducing the number of household categories.
+
 
 ## AUC measurements for each variable
 
-I tested the predictive capability of each variable using a random forest. A separate random forest was grown for each variable, and its performance was measured using an out-of-bounds AUC measurement. We could attempt to recover some of the information in these variables by mapping countries to regions and reducing the number of household categories.
+I tested the predictive capability of each variable using a random forest. A separate random forest was grown for each variable, and its performance was measured using an out-of-bounds AUC measurement. 
+
+
 
 ```{r echo=F}
 performance %>%
   mutate(AUC=as.numeric(AUC)) %>%
-  select(Variable, AUC) %>%
+  select(Variable, AUC, Missing_Frequency, Rare_Frequency) %>%
   arrange(-AUC) %>%
   renderDataTable(options=list(pageLength = 10))
 ```
