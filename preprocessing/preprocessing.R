@@ -2,6 +2,7 @@ library("dplyr") # used for  improved syntax
 library("data.table") # used for fast file reading
 library("tidyr") # used for fast data-munging
 library("ggvis") # used for plotting
+library("readr")
 
 # loading the data from the file
 # and a bit of cleaning
@@ -113,8 +114,18 @@ continuous_cleaned = census %>%
 census = census %>%
   select(id, Target, Cohort) %>%
   mutate(Target=factor(Target)) %>%
-  inner_join(catagorical_cleaned) %>%
+  inner_join(categorical_cleaned) %>%
   inner_join(continuous_cleaned)
+
+missingness = census %>%
+  select(-id, -Target, -Cohort) %>%
+  gather(Variable, Value) %>%
+  group_by(Variable) %>%
+  summarize(Missing_Count=sum(grepl(" not in universe", Value, ignore.case=T)),
+            Rare_Count=sum(Value=="RARE")) %>%
+  mutate(Missing_Frequency=Missing_Count/nrow(census),
+         Rare_Frequency=Rare_Count/nrow(census))
+  
 
 census_training = census %>%
   filter(Cohort=="Training")
@@ -127,3 +138,5 @@ save(census_testing, file="./data/census_testing.Rdata")
 
 save(rare_categories, file="./data/rare_catagories.Rdata")
 save(frequent_categories, file="./data/frequent_catagories.Rdata")
+
+save(missingness, file="./Rmd/data/missingness.Rdata")
